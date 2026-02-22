@@ -14,9 +14,11 @@ static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Start: {} bytes", ALLOCATOR.allocated());
     let builder = S3::default()
-        .endpoint("https://s3.amazonaws.com")
+        .endpoint("http://192.168.13.187:9000")
         .region("eu-west-2")
         .bucket(&env::var("S3BUCKET")?)
+        .access_key_id(&env::var("AWS_ACCESS_KEY")?)
+        .secret_access_key(&env::var("AWS_SECRET_KEY")?)
         .root("/");
     println!("Builder: {} bytes", ALLOCATOR.allocated());
     let op: Operator = Operator::new(builder)?.finish();
@@ -48,8 +50,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ALLOCATOR.allocated()
                 );
             }
-            chunk.truncate(count);
-            let data = Bytes::from(chunk);
+            // chunk.truncate(count);
+            // let data = Bytes::from(chunk);
+            let data = chunk[..count].to_vec();
             writer.write(data).await?;
         }
         println!("\nStream finished.");

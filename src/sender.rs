@@ -16,7 +16,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "127.0.0.1:8080";
     let sender_task = tokio::spawn(async move {
         let file = File::open("mediumfile.dat").await.unwrap();
-        let mut stream = ReaderStream::with_capacity(file, 1024 * 1024);
+
+        // the default setting is to read data in 4kB chunks
+        let mut stream = ReaderStream::new(file);
+        // by making the chunks larger by default, we send larger network packets
+        // and the OS on the receiving side hands those larger chunks to the application
+        // hence mitigating the issue. But we do not have control on the server side how
+        // the client sends the stream.
+        //let mut stream = ReaderStream::with_capacity(file, 32 * 1024);
 
         println!("Stream: {} bytes", ALLOCATOR.allocated());
 
@@ -29,7 +36,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .write_all(&bytes)
                 .await
                 .expect("Failed to write");
-            sleep(Duration::from_millis(10)).await;
+            // if we send small packets and sleep a bit between the packets, the
+            // receiver on an idle system will pick them up very quickly, getting
+            // a lot of those small packets into the queue.
+            sleep(Duration::from_millis(5)).await;
         }
 
         // Shutting down the write half signals EOF to the receiver
